@@ -1,23 +1,23 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, thread::sleep, time::Duration};
 
 use anyhow::Result;
+use structopt::StructOpt;
 
-use headless_chrome::{Browser, LaunchOptions};
+use headless_chrome::{browser::context::Context, Browser, LaunchOptions};
 
-struct ElementCall {
+#[derive(Debug, StructOpt)]
+struct CmdParameters {
     url: String,
-    room: String,
-    homeserver: String,
+    bots: usize,
+    #[structopt(short, long)]
+    headless: bool,
 }
 
-struct User {
-    name: String,
-    password: String,
-}
+fn main() {
+    let params = CmdParameters::from_args();
 
-fn join_call(ec: &ElementCall, user: &User) -> Result<()> {
-    let launch_options = LaunchOptions {
-        headless: false,
+    let browser = Browser::new(LaunchOptions {
+        headless: params.headless,
         sandbox: false,
         ignore_certificate_errors: true,
         args: vec![
@@ -30,46 +30,42 @@ fn join_call(ec: &ElementCall, user: &User) -> Result<()> {
             OsStr::new("--autoplay-policy=no-user-gesture-required"),
         ],
         ..LaunchOptions::default()
-    };
-    let browser = Browser::new(launch_options)?;
+    })
+    .expect("☠️ Failed to create a browser");
 
-    let context = browser.new_context()?;
-    let tab = context.new_tab()?;
-    tab.navigate_to(&ec.url)?;
+    let _bots = (0..params.bots)
+        .map(|i| {
+            println!("🚀 Launching bot {i}...");
+            sleep(Duration::from_secs(3)); // Wait for 3 seconds before spawning to workaround the rate limiting.
+            let bot = launch_bot(&browser, &params.url, format!("bot_{i}"))?;
+            println!("✅ Bot {i} launched!");
+            Ok(bot)
+        })
+        .collect::<Result<Vec<_>>>()
+        .expect("☠️ Failed to launch all bots");
 
-    let element = tab.wait_for_element("input#callName")?;
-    element.type_into(&ec.room)?;
-    element.click()?;
+    println!("🎉 All bots are launched! Bots will leave the conference automatically after 5 minutes");
+    println!("Press CTRL+C to stop immediately.");
 
-    tab.wait_for_element("input#displayName")?.click()?;
-    tab.type_str(&user.name)?;
-    tab.press_key("Enter")?;
-    tab.wait_until_navigated()?;
-
-    tab.wait_for_elements("button")?
-        .into_iter()
-        .find(|e| e.value.contains("Join call now"))
-        .unwrap()
-        .click()?;
-
-    // Sleep for 20 seconds to allow the call to connect.
-    std::thread::sleep(std::time::Duration::from_secs(20));
-
-    Ok(())
+    // Wait for 5 minutes before quitting.
+    sleep(Duration::from_secs(5 * 60));
 }
 
-fn main() {
-    let ec = ElementCall {
-        // url: "https://pr804--element-call.netlify.app".to_string(),
-        url: "https://element-call.netlify.app".to_string(),
-        room: "dcall".to_string(),
-        homeserver: "call.ems.org".to_string(),
-    };
+fn launch_bot<'a>(browser: &'a Browser, url: &str, name: String) -> Result<Context<'a>> {
+    let context = browser.new_context()?;
+    let tab = context.new_tab()?;
+    tab.set_default_timeout(Duration::from_secs(3));
 
-    let user = User {
-        name: "Hans Zimmer".to_string(),
-        password: "123456".to_string(),
-    };
+    tab.navigate_to(url)?;
 
-    join_call(&ec, &user).unwrap();
+    let element = tab.wait_for_element("input#displayName")?;
+    element.type_into(&name)?;
+    element.click()?;
+    tab.press_key("Enter")?;
+    tab.wait_until_navigated()?;
+    tab.press_key("Enter")?;
+    sleep(Duration::from_secs(2));
+    tab.press_key("Enter")?;
+
+    Ok(context)
 }

@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.69"
 headless_chrome = {git = "https://github.com/atroche/rust-headless-chrome", features = ["fetch"]}
+structopt = "0.3.26"
 tokio = "1.25.0"
