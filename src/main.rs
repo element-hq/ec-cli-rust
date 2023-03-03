@@ -63,7 +63,9 @@ fn launch_bot<'a>(browser: &'a Browser, url: &str, name: String) -> Result<Conte
     element.click()?;
     tab.press_key("Enter")?;
     tab.wait_until_navigated()?;
+    sleep(Duration::from_secs(1));
     tab.press_key("Enter")?;
+    tab.wait_until_navigated()?;
     sleep(Duration::from_secs(2));
     tab.press_key("Enter")?;
 
