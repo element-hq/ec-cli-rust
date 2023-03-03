@@ -6,11 +6,10 @@ call.
 
 # Usage
 
-Install Rust (if not already installed) with:
+Clone the repository and install Rust (if not already installed) with:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
 ```
 
 Then you can run `cargo run --release` to see all available options.
